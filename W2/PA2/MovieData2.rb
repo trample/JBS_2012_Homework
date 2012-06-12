@@ -12,13 +12,23 @@ class Rating
 		puts "[#{@user}, #{@movie}, #{@rate}]"
 	end
 
+	def to_a 
+		[@user, @movie, @rate]
+	end
+
 end
 
 class MovieData
-	def initialize(file_path)
-		file = File.new(file_path, "r")
+	def initialize(file_path, u="u.data")
+		@u = u
+		if u == "u.data"
+			file = File.new(file_path+"/"+u, "r")
+		else 
+			file = File.new(file_path+"/"+u+".base", "r")
+		end
 		@list = file.readlines.collect{|x| Rating.new(x)}
 	end
+
 
 	def popularity_list
 		@pop_list = {}
@@ -107,12 +117,65 @@ class MovieData
 		return nil
 	end
 
+	def run_test(k)
+		test_list = []
+		if @u == "u.data"
+			puts "there is no test set"
+		else 
+			a=IO.readlines("ml-100k/"+@u+".test")[0..k].collect {|x| Rating.new(x)}
+			a.each do |x|
+				test_list << (x.to_a+[predict(x.user, x.movie)])
+			end
+		end
+		b = MovieTest.new(test_list)
+	end
 
 end
 
+class Array
+    def sum
+        self.inject{|sum,x| sum + x }
+    end
+end
+
+class MovieTest
+	attr_accessor :mean, :stddev, :rms, :result
+	def initialize(a) 
+		@result = a
+		@mean = -1
+		@stddev= -1
+		@rms = -1
+	end
+
+	def calc_mean 
+		sum = 0
+		a = @result.each {|x| sum += (x[2]-x[3]).abs}
+		mean = sum.to_f/@result.size
+	end
+
+	def calc_stddev 
+		sum = 0
+		mean = calc_mean
+		a = @result.each {|x| sum += (x[2]-x[3]-mean)**2}
+		puts Math.sqrt(sum/@result.size) 
+	end
+
+	def calc_rms 
+		sum = 0
+		mean = calc_mean
+		a = @result.each {|x| sum += (x[2]-x[3])**2}
+		puts Math.sqrt(sum/@result.size) 
+	end
+
+	def to_s 
+		@result.each {|x| puts x}
+	end
+end
+
+
 class MovieNames
 	def initialize 
-		movie_file = File.new("u.item", "r")
+		movie_file = File.new("ml-100k/u.item", "r")
 		@movie_list = movie_file.readlines.collect{|x| x.split("|")[1]}
 	end
 
@@ -123,16 +186,20 @@ class MovieNames
 end
 
 
+
 puts "start"
 start = Time.now
-mmm = MovieData.new("u.data")
+mmm = MovieData.new("ml-100k", "u1")
 @mlist = mmm.gen_movlist
 @ulist = mmm.gen_usrlist
 #puts mmm.similarity(1,848)
-i=1
-
-
-puts mmm.predict(300,1)
+puts "mean of the difference of prediction with actual status is"
+puts mmm.run_test(100).calc_mean
+puts "standard deviation of the  difference of prediction with actual status is"
+puts mmm.run_test(100).calc_stddev
+puts "root mean square of the  difference of prediction with actual status is"
+puts mmm.run_test(100).calc_rms
+#puts mmm.predict(300,1)
 
 names = MovieNames.new
 
